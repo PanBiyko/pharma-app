@@ -586,4 +586,4 @@ def main(page: ft.Page):
 
     show_home()
 
-ft.run(main)
+ft.app(target=main)
