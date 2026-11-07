@@ -26,10 +26,10 @@ jobs:
           python-version: '3.11'
 
       - name: Install Flet
-        run: pip install flet==0.24.1
+        run: pip install flet
 
       - name: Build Web
-        run: flet build web --base-url /pharma-app --template-ref 0.24.1
+        run: flet build web --base-url /pharma-app
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
