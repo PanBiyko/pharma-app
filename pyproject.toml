@@ -5,3 +5,8 @@ requires-python = ">=3.11"
 dependencies = [
     "flet",
 ]
+
+[tool.flet.web]
+# можно добавить, но не обязательно — флаги в workflow важнее
+# base_url = "/pharma-app"
+# route_url_strategy = "hash"
