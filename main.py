@@ -1,7 +1,6 @@
 import flet as ft
 import random
 import json
-import os
 
 # --- ПОЛНАЯ БАЗА ДАННЫХ ---
 DATABASE = {
@@ -59,7 +58,7 @@ DATABASE = {
             "β2-АМ длительного действия": ["Формотерол", "Салметерол"],
             "β2-АМ ультрадлительного действия": ["Индакатерол", "Олодатерол"],
             "β2-АМ токолитического действия": ["Гексопреналин"],
-            "β3-АМ урологические": ["Миробегрон"]
+            "β3-АМ урологические": ["Мирабегрон"]
         },
         "Симпатомиметики": ["Эфедрин"]
     },
@@ -289,14 +288,6 @@ for t, classes in DATABASE.items():
     ALL_DRUGS_FLAT.extend([d[0] for d in topic_drugs])
 ALL_DRUGS_FLAT = list(set(ALL_DRUGS_FLAT))
 
-STATS_FILE = "stats.json"
-def load_stats():
-    if os.path.exists(STATS_FILE):
-        with open(STATS_FILE, 'r', encoding='utf-8') as f: return json.load(f)
-    return {}
-def save_stats(stats):
-    with open(STATS_FILE, 'w', encoding='utf-8') as f: json.dump(stats, f, ensure_ascii=False)
-
 def get_topic_stats(stats, topic):
     if topic not in stats: stats[topic] = {"class_mastered": [], "search_mastered": []}
     return stats[topic]
@@ -317,7 +308,11 @@ def main(page: ft.Page):
     page.bgcolor = "#F0F4F8"
     page.padding = 15
     
-    stats = load_stats()
+    # Сохранение прогресса в браузере
+    stats = page.client_storage.get("stats_data") or {}
+
+    def save_stats():
+        page.client_storage.set("stats_data", stats)
 
     def clear_page():
         page.controls.clear()
@@ -360,7 +355,7 @@ def main(page: ft.Page):
         def do_reset(ev):
             nonlocal stats
             stats = {}
-            save_stats(stats)
+            page.client_storage.remove("stats_data")
             page.dialog.open = False
             show_home()
         page.dialog = ft.AlertDialog(title=ft.Text("Сброс"), content=ft.Text("Сбросить весь прогресс?"), actions=[
@@ -397,20 +392,17 @@ def main(page: ft.Page):
     def build_classify_ui(selected_topics, target_drug, target_topic, target_cls, target_sub, is_exam):
         clear_page()
         
-        # Прогресс
         dc, tc = calc_progress(stats, selected_topics, "class")
         pc = dc / tc if tc > 0 else 0
         pb = ft.ProgressBar(value=pc, color="#2ECC71", bgcolor="#FFCDD2")
         lbl_prog = ft.Text(f"Освоено: {dc} из {tc} ({int(pc*100)}%)", size=12)
         page.add(ft.Container(content=ft.Column([pb, lbl_prog]), bgcolor="#FFF", padding=10, border_radius=10))
 
-        # Карточка препарата
         page.add(ft.Container(content=ft.Column([
             ft.Text("Классифицируйте:", size=14, color="#7f8c8d"),
             ft.Text(target_drug, size=32, weight=ft.FontWeight.BOLD, color="#E67E22")
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER), bgcolor="#FFF", padding=20, border_radius=15, margin=10))
 
-        # Выпадающие списки
         dd_topic = ft.Dropdown(label="Тема", options=[ft.dropdown.Option(t) for t in selected_topics], disabled=not is_exam)
         if is_exam: dd_topic.value = None
         else: dd_topic.value = selected_topics[0]
@@ -472,10 +464,9 @@ def main(page: ft.Page):
             if correct:
                 get_topic_stats(stats, target_topic)["class_mastered"].append(target_drug)
                 get_topic_stats(stats, target_topic)["class_mastered"] = list(set(get_topic_stats(stats, target_topic)["class_mastered"]))
-                save_stats(stats)
+                save_stats()
                 feedback.value = "✅ Верно!"
                 feedback.color = "#2ECC71"
-                # Обновляем прогресс
                 dc, tc = calc_progress(stats, selected_topics, "class")
                 pb.value = dc / tc if tc > 0 else 0
                 lbl_prog.value = f"Освоено: {dc} из {tc} ({int(pb.value*100)}%)"
@@ -546,7 +537,7 @@ def main(page: ft.Page):
             if set(correct_drugs) == set(selected_btns):
                 get_topic_stats(stats, target_topic)["search_mastered"].append(f"{target_cls}|{target_sub}")
                 get_topic_stats(stats, target_topic)["search_mastered"] = list(set(get_topic_stats(stats, target_topic)["search_mastered"]))
-                save_stats(stats)
+                save_stats()
                 feedback.value = "✅ Идеально!"
                 feedback.color = "#2ECC71"
                 dc, tc = calc_progress(stats, selected_topics, "search")
