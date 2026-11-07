@@ -302,17 +302,21 @@ def calc_progress(stats, topics, mode="class"):
     return done, total
 
 # --- ИНТЕРФЕЙС FLET ---
-def main(page: ft.Page):
+# ВАЖНО: теперь функция асинхронная!
+async def main(page: ft.Page):
     page.title = "Фарма Ассистент"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = "#F0F4F8"
     page.padding = 15
     
-    # Сохранение прогресса в браузере
-    stats = page.client_storage.get("stats_data") or {}
+    # Используем SharedPreferences вместо устаревшего client_storage
+    prefs = ft.SharedPreferences()
+    stats_json = await prefs.get("stats_data")
+    stats = json.loads(stats_json) if stats_json else {}
 
-    def save_stats():
-        page.client_storage.set("stats_data", stats)
+    # Асинхронное сохранение
+    async def save_stats():
+        await prefs.set("stats_data", json.dumps(stats))
 
     def clear_page():
         page.controls.clear()
@@ -352,12 +356,14 @@ def main(page: ft.Page):
 
     # СБРОС
     def reset_confirm(e):
-        def do_reset(ev):
+        async def do_reset(ev):
             nonlocal stats
             stats = {}
-            page.client_storage.remove("stats_data")
+            await prefs.set("stats_data", "")
             page.dialog.open = False
             show_home()
+            page.update()
+            
         page.dialog = ft.AlertDialog(title=ft.Text("Сброс"), content=ft.Text("Сбросить весь прогресс?"), actions=[
             ft.TextButton("Да", on_click=do_reset), ft.TextButton("Нет", on_click=lambda _: setattr(page.dialog, 'open', False) or page.update())
         ])
@@ -454,7 +460,7 @@ def main(page: ft.Page):
         feedback = ft.Text("", weight=ft.FontWeight.BOLD, size=16)
         page.add(feedback)
 
-        def check(e):
+        async def check(e):  # Сделали асинхронной
             if not dd_topic.value or not dd_class.value: return
             target_s, target_r = parse_pharmacology(target_cls, target_sub if target_sub else "")
             correct = (dd_topic.value == target_topic and dd_class.value == target_cls and 
@@ -464,7 +470,7 @@ def main(page: ft.Page):
             if correct:
                 get_topic_stats(stats, target_topic)["class_mastered"].append(target_drug)
                 get_topic_stats(stats, target_topic)["class_mastered"] = list(set(get_topic_stats(stats, target_topic)["class_mastered"]))
-                save_stats()
+                await save_stats()  # Ждем сохранения
                 feedback.value = "✅ Верно!"
                 feedback.color = "#2ECC71"
                 dc, tc = calc_progress(stats, selected_topics, "class")
@@ -533,11 +539,11 @@ def main(page: ft.Page):
         feedback = ft.Text("", weight=ft.FontWeight.BOLD, size=16)
         page.add(feedback)
 
-        def finish(e):
+        async def finish(e):  # Сделали асинхронной
             if set(correct_drugs) == set(selected_btns):
                 get_topic_stats(stats, target_topic)["search_mastered"].append(f"{target_cls}|{target_sub}")
                 get_topic_stats(stats, target_topic)["search_mastered"] = list(set(get_topic_stats(stats, target_topic)["search_mastered"]))
-                save_stats()
+                await save_stats()  # Ждем сохранения
                 feedback.value = "✅ Идеально!"
                 feedback.color = "#2ECC71"
                 dc, tc = calc_progress(stats, selected_topics, "search")
@@ -577,4 +583,5 @@ def main(page: ft.Page):
 
     show_home()
 
+# Запускаем через run, так как app устарел
 ft.run(main)
