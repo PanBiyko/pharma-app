@@ -585,3 +585,7 @@ async def main(page: ft.Page):
 
 # Запускаем через run, так как app устарел
 ft.run(main)
+
+git add .
+git commit -m "Fix web deploy with hash routing"
+git push
